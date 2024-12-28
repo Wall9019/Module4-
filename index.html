@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en" ng-app="MenuApp">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Restaurant Menu</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        .category-item {
+            margin-bottom: 15px;
+        }
+        .item-description {
+            font-size: 0.9em;
+            color: #555;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <ui-view></ui-view>
+    </div>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/angular-ui-router/1.0.29/angular-ui-router.min.js"></script>
+
+    <script>
+        (function () {
+            'use strict';
+
+            // Module declarations
+            angular.module('MenuApp', ['ui.router', 'data']);
+            angular.module('data', []);
+
+            // Service
+            angular.module('data').service('MenuDataService', MenuDataService);
+
+            MenuDataService.$inject = ['$http'];
+            function MenuDataService($http) {
+                var service = this;
+
+                service.getAllCategories = function () {
+                    return $http({
+                        method: "GET",
+                        url: "https://coursera-jhu-default-rtdb.firebaseio.com/categories.json"
+                    }).then(function (response) {
+                        return response.data;
+                    });
+                };
+
+                service.getItemsForCategory = function (categoryShortName) {
+                    return $http({
+                        method: "GET",
+                        url: "https://coursera-jhu-default-rtdb.firebaseio.com/menu_items/" + categoryShortName + ".json"
+                    }).then(function (response) {
+                        return response.data.menu_items;
+                    });
+                };
+            }
+
+            // Routes configuration
+            angular.module('MenuApp').config(RoutesConfig);
+
+            RoutesConfig.$inject = ['$stateProvider', '$urlRouterProvider'];
+            function RoutesConfig($stateProvider, $urlRouterProvider) {
+                $urlRouterProvider.otherwise('/');
+
+                $stateProvider
+                    .state('home', {
+                        url: '/',
+                        template: '<h1 class="text-center">Welcome to Our Restaurant</h1><p class="text-center"><a class="btn btn-primary" ui-sref="categories">View Categories</a></p>'
+                    })
+                    .state('categories', {
+                        url: '/categories',
+                        template: '<categories items="$resolve.items"></categories>',
+                        resolve: {
+                            items: ['MenuDataService', function (MenuDataService) {
+                                return MenuDataService.getAllCategories();
+                            }]
+                        }
+                    })
+                    .state('items', {
+                        url: '/items/{categoryShortName}',
+                        template: '<items items="$resolve.items"></items>',
+                        resolve: {
+                            items: ['$stateParams', 'MenuDataService', function ($stateParams, MenuDataService) {
+                                return MenuDataService.getItemsForCategory($stateParams.categoryShortName);
+                            }]
+                        }
+                    });
+            }
+
+            // Categories component
+            angular.module('MenuApp').component('categories', {
+                template: `
+                    <div class="list-group">
+                        <a class="list-group-item category-item" ng-repeat="item in $ctrl.items" ui-sref="items({categoryShortName: item.short_name})">
+                            <h5>{{ item.name }}</h5>
+                            <p class="item-description">{{ item.short_name }}</p>
+                        </a>
+                    </div>
+                `,
+                bindings: {
+                    items: '<'
+                }
+            });
+
+            // Items component
+            angular.module('MenuApp').component('items', {
+                template: `
+                    <div class="list-group">
+                        <div class="list-group-item" ng-repeat="item in $ctrl.items">
+                            <h5>{{ item.name }}</h5>
+                            <p class="item-description">{{ item.description }}</p>
+                        </div>
+                    </div>
+                `,
+                bindings: {
+                    items: '<'
+                }
+            });
+
+        })();
+    </script>
+</body>
+
+</html>
